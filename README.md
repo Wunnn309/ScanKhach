@@ -1,15 +1,14 @@
 # ScanKhach - Barcode Scanner Application
 
-Ứng dụng quét mã barcode 128 bằng camera điện thoại sử dụng **@zxing/browser**.
+Ứng dụng quét mã barcode 128 bằng camera điện thoại sử dụng **html5-qrcode**.
 
 ## 🚀 Tính năng
 
 - ✅ Quét mã barcode 128 real-time từ camera điện thoại
+- ✅ Hỗ trợ nhiều định dạng: CODE_128, CODE_39, EAN_13, UPC, QR Code
 - ✅ Hiển thị danh sách kết quả quét
-- ✅ Tính thống kê (tổng số lần quét, số mã duy nhất)
 - ✅ Xuất dữ liệu ra file CSV
 - ✅ Giao diện responsive (mobile-first)
-- ✅ Hiệu ứng scan hấp dẫn
 - ✅ Xử lý tránh quét trùng lặp
 
 ## 📋 Yêu cầu
@@ -62,7 +61,7 @@ npm run preview
 ## 📦 Dependencies
 
 - **React** 18.2.0 - Framework UI
-- **@zxing/browser** 0.0.13 - Thư viện quét barcode
+- **html5-qrcode** 2.3.4 - Thư viện quét barcode
 - **Ant Design** 5.26.7 - UI components
 - **Vite** 2.9.9 - Build tool
 - **React Router DOM** 7.7.1 - Routing

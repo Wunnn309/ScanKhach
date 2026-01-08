@@ -13,7 +13,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          zxing: ["@zxing/browser"],
+          html5qrcode: ["html5-qrcode"],
           antd: ["antd"],
         },
       },
