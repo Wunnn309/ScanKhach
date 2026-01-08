@@ -1,18 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { BrowserMultiFormatReader, BarcodeFormat } from "@zxing/browser";
-import { DecodeHintType } from "@zxing/library";
-import {
-  Button,
-  message,
-  Spin,
-  Empty,
-  Card,
-  Row,
-  Col,
-  Input,
-  Space,
-  Tag,
-} from "antd";
+import { Html5QrcodeScanner } from "html5-qrcode";
+import { Button, message, Empty, Card, Row, Col, Space, Tag } from "antd";
 import {
   CameraOutlined,
   StopOutlined,
@@ -21,135 +9,117 @@ import {
 import "./BarcodeScanner.css";
 
 const BarcodeScanner = () => {
-  const videoRef = useRef(null);
+  const scannerRef = useRef(null);
   const [scanning, setScanning] = useState(false);
   const [results, setResults] = useState([]);
-  const [codeReader, setCodeReader] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastScan, setLastScan] = useState("");
   const scanTimeoutRef = useRef(null);
+  const qrScannerRef = useRef(null);
 
-  // Khởi tạo BarcodeReader
+  // Initialize scanner on mount
   useEffect(() => {
-    const hints = new Map();
-    hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128]);
-
-    const reader = new BrowserMultiFormatReader(hints);
-    setCodeReader(reader);
-
     return () => {
-      if (reader) {
-        reader.reset();
+      // Cleanup on unmount
+      if (qrScannerRef.current) {
+        qrScannerRef.current.clear();
       }
     };
   }, []);
 
-  // Hàm bắt đầu scan
+  // Bắt đầu scan
   const startScanning = async () => {
-    if (!codeReader) return;
-
     setLoading(true);
     try {
-      // Kiểm tra xem browser hỗ trợ mediaDevices không
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        message.error(
-          "Trình duyệt của bạn không hỗ trợ camera. Vui lòng dùng Chrome, Firefox hoặc Edge."
-        );
-        setLoading(false);
-        return;
-      }
-
-      const constraints = {
-        video: {
-          facingMode: "environment", // Camera sau
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+      const scanner = new Html5QrcodeScanner(
+        "qr-reader",
+        {
+          fps: 15,
+          qrbox: { width: 300, height: 100 },
+          aspectRatio: 4,
+          rememberLastUsedCamera: true,
+          showTorchButtonIfSupported: true,
+          formatsToSupport: [
+            "CODE_128",
+            "CODE_39",
+            "CODE_93",
+            "CODABAR",
+            "EAN_13",
+            "EAN_8",
+            "UPC_A",
+            "UPC_E",
+            "QR_CODE",
+          ],
         },
-        audio: false,
-      };
+        /* verbose= */ false
+      );
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-        setScanning(true);
-        scanBarcodes();
-      }
-    } catch (error) {
-      if (error.name === "NotAllowedError") {
-        message.error("Vui lòng cấp quyền truy cập camera");
-      } else if (error.name === "NotFoundError") {
-        message.error("Không tìm thấy camera");
-      } else {
-        message.error("Lỗi khi bật camera: " + error.message);
-      }
-      setLoading(false);
-    }
-  };
+      const success = (decodedText, decodedResult) => {
+        // Tránh scan trùng lặp
+        if (decodedText && decodedText !== lastScan) {
+          setLastScan(decodedText);
+          let format = "Unknown";
 
-  // Hàm scan barcode
-  const scanBarcodes = async () => {
-    if (!videoRef.current || !codeReader || !scanning) return;
+          if (
+            decodedResult &&
+            decodedResult.result &&
+            decodedResult.result.format
+          ) {
+            format = decodedResult.result.format.format_name || "Unknown";
+          }
 
-    try {
-      const result = await codeReader.decodeFromVideoElement(videoRef.current);
-      if (result) {
-        const barcodeData = result.getText();
-
-        // Tránh scan trùng lặp trong 1 giây
-        if (barcodeData !== lastScan) {
-          setLastScan(barcodeData);
-          addResult(barcodeData, result.getBarcodeFormat());
-          message.success(`Scan thành công: ${barcodeData}`);
+          const newResult = {
+            id: Date.now(),
+            barcode: decodedText,
+            format: format,
+            timestamp: new Date().toLocaleString("vi-VN"),
+          };
+          setResults((prev) => [newResult, ...prev]);
+          message.success(`Scan thành công: ${decodedText} (${format})`);
 
           // Reset lastScan sau 1 giây
+          if (scanTimeoutRef.current) {
+            clearTimeout(scanTimeoutRef.current);
+          }
           scanTimeoutRef.current = setTimeout(() => {
             setLastScan("");
           }, 1000);
         }
-      }
+      };
+
+      const error = (err) => {
+        // Ignore errors - continue scanning
+      };
+
+      scanner.render(success, error);
+      qrScannerRef.current = scanner;
+      setScanning(true);
+      setLoading(false);
+      message.success("Camera bắt đầu");
     } catch (error) {
-      // Không log error vì có thể camera chưa sẵn sàng
-    }
-
-    // Tiếp tục scan
-    if (scanning && videoRef.current) {
-      requestAnimationFrame(scanBarcodes);
+      console.error("Scanner error:", error);
+      message.error("Lỗi: " + error.message);
+      setLoading(false);
     }
   };
 
-  // Hàm thêm kết quả scan
-  const addResult = (barcode, format) => {
-    const newResult = {
-      id: Date.now(),
-      barcode,
-      format: format,
-      timestamp: new Date().toLocaleString("vi-VN"),
-    };
-    setResults((prev) => [newResult, ...prev]);
-  };
-
-  // Hàm dừng scan
+  // Dừng scan
   const stopScanning = () => {
     setScanning(false);
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
+    if (qrScannerRef.current) {
+      qrScannerRef.current.clear();
+      qrScannerRef.current = null;
     }
-    setLoading(false);
-    if (scanTimeoutRef.current) {
-      clearTimeout(scanTimeoutRef.current);
-    }
+    message.info("Camera đã dừng");
   };
 
-  // Hàm xóa kết quả
+  // Xóa kết quả
   const clearResults = () => {
     setResults([]);
     message.info("Đã xóa tất cả kết quả");
   };
 
-  // Hàm xuất CSV
+  // Xuất CSV
   const exportToCSV = () => {
     if (results.length === 0) {
       message.warning("Không có dữ liệu để xuất");
@@ -207,20 +177,8 @@ const BarcodeScanner = () => {
             }
             className="scanner-card"
           >
-            <div className="video-container">
-              {scanning ? (
-                <>
-                  <video ref={videoRef} className="scanner-video" playsInline />
-                  <div className="scan-overlay">
-                    <div className="scan-line"></div>
-                  </div>
-                </>
-              ) : (
-                <Empty
-                  description="Camera chưa được bật"
-                  style={{ paddingTop: "100px" }}
-                />
-              )}
+            <div className="video-container" id="qr-reader">
+              {/* Scanner will render here */}
             </div>
           </Card>
         </Col>
@@ -266,16 +224,21 @@ const BarcodeScanner = () => {
                       </Col>
                       <Col span={16}>
                         <div className="result-barcode">{item.barcode}</div>
-                        <div className="result-time">{item.timestamp}</div>
-                      </Col>
-                      <Col span={7}>
-                        <Tag color="green">{item.format}</Tag>
+                        <div className="result-meta">
+                          <span className="result-format">
+                            Format: {item.format}
+                          </span>
+                          <span className="result-time">
+                            {" "}
+                            • {item.timestamp}
+                          </span>
+                        </div>
                       </Col>
                     </Row>
                   </div>
                 ))
               ) : (
-                <Empty description="Chưa có kết quả" />
+                <Empty description="Chưa có kết quả scan" />
               )}
             </div>
           </Card>

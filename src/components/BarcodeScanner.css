@@ -22,11 +22,18 @@
   min-height: 300px;
 }
 
-.scanner-video {
+/* Html5-qrcode styles */
+#qr-reader {
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#qr-reader video {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scaleX(-1);
+  border-radius: 8px;
 }
 
 .scan-overlay {
