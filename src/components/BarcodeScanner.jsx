@@ -30,77 +30,82 @@ const BarcodeScanner = () => {
   // Bắt đầu scan
   const startScanning = async () => {
     setLoading(true);
-    try {
-      const scanner = new Html5QrcodeScanner(
-        "qr-reader",
-        {
-          fps: 15,
-          qrbox: { width: 300, height: 100 },
-          aspectRatio: 4,
-          rememberLastUsedCamera: true,
-          showTorchButtonIfSupported: true,
-          formatsToSupport: [
-            "CODE_128",
-            "CODE_39",
-            "CODE_93",
-            "CODABAR",
-            "EAN_13",
-            "EAN_8",
-            "UPC_A",
-            "UPC_E",
-            "QR_CODE",
-          ],
-        },
-        /* verbose= */ false
-      );
+    setScanning(true); // Set trước để render element
 
-      const success = (decodedText, decodedResult) => {
-        // Tránh scan trùng lặp
-        if (decodedText && decodedText !== lastScan) {
-          setLastScan(decodedText);
-          let format = "Unknown";
+    // Delay để element được render trước
+    setTimeout(() => {
+      try {
+        const scanner = new Html5QrcodeScanner(
+          "qr-reader",
+          {
+            fps: 15,
+            qrbox: { width: 500, height: 500 },
+            aspectRatio: 4,
+            rememberLastUsedCamera: true,
+            showTorchButtonIfSupported: true,
+            formatsToSupport: [
+              "CODE_128",
+              "CODE_39",
+              "CODE_93",
+              "CODABAR",
+              "EAN_13",
+              "EAN_8",
+              "UPC_A",
+              "UPC_E",
+              "QR_CODE",
+            ],
+          },
+          /* verbose= */ false
+        );
 
-          if (
-            decodedResult &&
-            decodedResult.result &&
-            decodedResult.result.format
-          ) {
-            format = decodedResult.result.format.format_name || "Unknown";
+        const success = (decodedText, decodedResult) => {
+          // Tránh scan trùng lặp
+          if (decodedText && decodedText !== lastScan) {
+            setLastScan(decodedText);
+            let format = "Unknown";
+
+            if (
+              decodedResult &&
+              decodedResult.result &&
+              decodedResult.result.format
+            ) {
+              format = decodedResult.result.format.format_name || "Unknown";
+            }
+
+            const newResult = {
+              id: Date.now(),
+              barcode: decodedText,
+              format: format,
+              timestamp: new Date().toLocaleString("vi-VN"),
+            };
+            setResults((prev) => [newResult, ...prev]);
+            message.success(`Scan thành công: ${decodedText} (${format})`);
+
+            // Reset lastScan sau 1 giây
+            if (scanTimeoutRef.current) {
+              clearTimeout(scanTimeoutRef.current);
+            }
+            scanTimeoutRef.current = setTimeout(() => {
+              setLastScan("");
+            }, 1000);
           }
+        };
 
-          const newResult = {
-            id: Date.now(),
-            barcode: decodedText,
-            format: format,
-            timestamp: new Date().toLocaleString("vi-VN"),
-          };
-          setResults((prev) => [newResult, ...prev]);
-          message.success(`Scan thành công: ${decodedText} (${format})`);
+        const error = (err) => {
+          // Ignore errors - continue scanning
+        };
 
-          // Reset lastScan sau 1 giây
-          if (scanTimeoutRef.current) {
-            clearTimeout(scanTimeoutRef.current);
-          }
-          scanTimeoutRef.current = setTimeout(() => {
-            setLastScan("");
-          }, 1000);
-        }
-      };
-
-      const error = (err) => {
-        // Ignore errors - continue scanning
-      };
-
-      scanner.render(success, error);
-      qrScannerRef.current = scanner;
-      setScanning(true);
-      setLoading(false);
-      message.success("Camera bắt đầu");
-    } catch (error) {
-      console.error("Scanner error:", error);
-      message.error("Lỗi: " + error.message);
-      setLoading(false);
-    }
+        scanner.render(success, error);
+        qrScannerRef.current = scanner;
+        setLoading(false);
+        message.success("Camera bắt đầu");
+      } catch (error) {
+        console.error("Scanner error:", error);
+        message.error("Lỗi: " + error.message);
+        setScanning(false);
+        setLoading(false);
+      }
+    }, 500); // Delay 500ms để element được render
   };
 
   // Dừng scan
@@ -148,18 +153,48 @@ const BarcodeScanner = () => {
 
   return (
     <div className="barcode-scanner-container">
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={14}>
-          <Card
-            title={
-              <Space>
-                <CameraOutlined />
-                <span>Camera Scanner</span>
-              </Space>
-            }
-            extra={
-              <Space>
-                {!scanning ? (
+      {scanning ? (
+        // Full screen camera mode
+        <>
+          <div className="video-container" id="qr-reader">
+            {/* Scanner renders here */}
+          </div>
+          <div
+            style={{
+              position: "fixed",
+              bottom: 20,
+              right: 20,
+              zIndex: 1000,
+            }}
+          >
+            <Button
+              danger
+              size="large"
+              icon={<StopOutlined />}
+              onClick={stopScanning}
+              style={{
+                fontSize: "16px",
+                padding: "10px 20px",
+                height: 50,
+                width: 50,
+                borderRadius: "50%",
+              }}
+            />
+          </div>
+        </>
+      ) : (
+        // Normal mode with results
+        <Row gutter={[16, 16]} style={{ padding: "20px" }}>
+          <Col xs={24} lg={14}>
+            <Card
+              title={
+                <Space>
+                  <CameraOutlined />
+                  <span>Camera Scanner</span>
+                </Space>
+              }
+              extra={
+                <Space>
                   <Button
                     type="primary"
                     icon={<CameraOutlined />}
@@ -168,82 +203,86 @@ const BarcodeScanner = () => {
                   >
                     Bắt đầu
                   </Button>
-                ) : (
-                  <Button danger icon={<StopOutlined />} onClick={stopScanning}>
-                    Dừng
-                  </Button>
-                )}
-              </Space>
-            }
-            className="scanner-card"
-          >
-            <div className="video-container" id="qr-reader">
-              {/* Scanner will render here */}
-            </div>
-          </Card>
-        </Col>
+                </Space>
+              }
+              className="scanner-card"
+            >
+              <div
+                style={{
+                  width: "100%",
+                  background: "#000",
+                  borderRadius: "8px",
+                  overflow: "hidden",
+                  minHeight: "400px",
+                }}
+              >
+                Nhấn "Bắt đầu" để bật camera
+              </div>
+            </Card>
+          </Col>
 
-        <Col xs={24} lg={10}>
-          <Card
-            title={
-              <Space>
-                <span>Kết quả Scan</span>
-                <Tag color="blue">{results.length}</Tag>
-              </Space>
-            }
-            extra={
-              <Space>
-                <Button
-                  type="primary"
-                  size="small"
-                  onClick={exportToCSV}
-                  disabled={results.length === 0}
-                >
-                  Xuất CSV
-                </Button>
-                <Button
-                  danger
-                  icon={<DeleteOutlined />}
-                  size="small"
-                  onClick={clearResults}
-                  disabled={results.length === 0}
-                >
-                  Xóa
-                </Button>
-              </Space>
-            }
-            className="results-card"
-          >
-            <div className="results-list">
-              {results.length > 0 ? (
-                results.map((item, index) => (
-                  <div key={item.id} className="result-item">
-                    <Row align="middle" gutter={16}>
-                      <Col span={1} className="item-number">
-                        {index + 1}
-                      </Col>
-                      <Col span={16}>
-                        <div className="result-barcode">{item.barcode}</div>
-                        <div className="result-meta">
-                          <span className="result-format">
-                            Format: {item.format}
-                          </span>
-                          <span className="result-time">
-                            {" "}
-                            • {item.timestamp}
-                          </span>
-                        </div>
-                      </Col>
-                    </Row>
-                  </div>
-                ))
-              ) : (
-                <Empty description="Chưa có kết quả scan" />
-              )}
-            </div>
-          </Card>
-        </Col>
-      </Row>
+          <Col xs={24} lg={10}>
+            <Card
+              title={
+                <Space>
+                  <span>Kết quả Scan</span>
+                  <Tag color="blue">{results.length}</Tag>
+                </Space>
+              }
+              extra={
+                <Space>
+                  <Button
+                    type="primary"
+                    size="small"
+                    onClick={exportToCSV}
+                    disabled={results.length === 0}
+                  >
+                    Xuất CSV
+                  </Button>
+                  <Button
+                    danger
+                    icon={<DeleteOutlined />}
+                    size="small"
+                    onClick={clearResults}
+                    disabled={results.length === 0}
+                  >
+                    Xóa
+                  </Button>
+                </Space>
+              }
+              className="results-card"
+            >
+              <div className="results-list">
+                {results.length > 0 ? (
+                  results.map((item, index) => (
+                    <div key={item.id} className="result-item">
+                      <Row align="middle" gutter={16}>
+                        <Col span={1} className="item-number">
+                          {index + 1}
+                        </Col>
+                        <Col span={16}>
+                          <div className="result-barcode">{item.barcode}</div>
+                          <div className="result-meta">
+                            <span className="result-format">
+                              Format: {item.format}
+                            </span>
+                            <span className="result-time">
+                              {" "}
+                              • {item.timestamp}
+                            </span>
+                          </div>
+                        </Col>
+                      </Row>
+                    </div>
+                  ))
+                ) : (
+                  <Empty description="Chưa có kết quả scan" />
+                )}
+              </div>
+            </Card>
+          </Col>
+        </Row>
+      )}
     </div>
   );
 };

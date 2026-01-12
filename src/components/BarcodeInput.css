@@ -1,0 +1,19 @@
+#qr-reader {
+  width: 100%;
+  height: auto;
+}
+
+#qr-reader video {
+  max-width: 100%;
+  height: auto;
+}
+
+.barcode-input-wrapper {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.barcode-input-wrapper input {
+  flex: 1;
+}
