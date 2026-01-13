@@ -1,13 +1,17 @@
-import React, { useState, useRef } from "react";
-import { Button, Checkbox, message } from "antd";
+import React, { useState, useRef, useEffect } from "react";
+import { Avatar, Button, Checkbox, message } from "antd";
 import { UserOutlined, CameraOutlined } from "@ant-design/icons";
 import BarcodeInput from "./BarcodeInput";
 import "./BarcodeScannerPage.css";
+import { getCustomerByCode } from "../api/customer";
+import { use } from "react";
+import { code } from "framer-motion/client";
 
 const BarcodeScannerPage = () => {
   const [currentPage, setCurrentPage] = useState("checklist");
   const [codeInput, setCodeInput] = useState("");
   const barcodeInputRef = useRef(null);
+  const avatarUrl = `https://hundreds-fit-surgeon-dat.trycloudflare.com/images_nhanvien/${codeInput}.jpg`;
   const [healthStatus, setHealthStatus] = useState({
     good: false,
     notGood: false,
@@ -34,6 +38,19 @@ const BarcodeScannerPage = () => {
     },
   });
 
+  useEffect(() => {
+    const fetchCustomer = async () => {
+      if (codeInput.trim() === "") return;
+      try {
+        const customerData = await getCustomerByCode(codeInput.trim());
+        console.log("Customer Data:", customerData);
+        message.success(`Customer found: ${customerData.name}`);
+      } catch (error) {
+        message.error("Customer not found or error occurred");
+      }
+    };
+    fetchCustomer();
+  }, [codeInput]);
   const handleHealthStatusChange = (field) => {
     setHealthStatus((prev) => ({
       ...prev,
@@ -114,9 +131,13 @@ const BarcodeScannerPage = () => {
                   />
                 </div>
               </div>
-              <div className="user-icon">
-                <UserOutlined />
-              </div>
+
+              <Avatar
+                shape="square"
+                style={{ height: "130px", width: "120px" }}
+                src={avatarUrl}
+                icon={<UserOutlined />}
+              />
             </div>
 
             <div className="sidebar-menu">
