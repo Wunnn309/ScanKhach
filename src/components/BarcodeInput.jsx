@@ -30,9 +30,9 @@ const BarcodeInput = forwardRef(({ onCodeScanned }, ref) => {
     try {
       const constraints = {
         video: {
-          facingMode: "environment", // Use back camera on mobile
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          facingMode: { ideal: "environment" }, // Try back camera, fallback to any
+          width: { min: 320, ideal: 640, max: 1280 },
+          height: { min: 240, ideal: 480, max: 720 },
         },
         audio: false,
       };

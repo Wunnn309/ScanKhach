@@ -38,16 +38,16 @@ const BarcodeScanner = () => {
         const scanner = new Html5QrcodeScanner(
           "qr-reader",
           {
-            fps: 15,
-            qrbox: { width: 500, height: 500 },
+            fps: 10, // Lower FPS for better Android compatibility
+            qrbox: { width: 300, height: 300 }, // Smaller box for faster detection
             aspectRatio: 4,
             rememberLastUsedCamera: true,
             showTorchButtonIfSupported: true,
-            // Better settings for Android
+            // More flexible settings for Android
             videoConstraints: {
-              facingMode: "environment", // Use back camera
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
+              facingMode: { ideal: "environment" }, // Try back, fallback to any
+              width: { min: 320, ideal: 640, max: 1280 },
+              height: { min: 240, ideal: 480, max: 720 },
             },
             formatsToSupport: [
               "CODE_128",
