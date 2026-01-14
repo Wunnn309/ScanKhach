@@ -25,8 +25,42 @@ const BarcodeInput = forwardRef(({ onCodeScanned }, ref) => {
     },
   }));
 
+  // Request camera permission for Android
+  const requestCameraPermission = async () => {
+    try {
+      const constraints = {
+        video: {
+          facingMode: "environment", // Use back camera on mobile
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Close the stream immediately, we just needed to request permission
+      stream.getTracks().forEach((track) => track.stop());
+      return true;
+    } catch (error) {
+      console.error("Camera permission error:", error);
+      return false;
+    }
+  };
+
   const startScanning = async () => {
     try {
+      // Request camera permission first on Android
+      const hasPermission = await requestCameraPermission();
+      if (!hasPermission) {
+        message.error(
+          "Vui lòng cấp quyền truy cập camera. Kiểm tra cài đặt điện thoại!"
+        );
+        setIsScanning(false);
+        scanningRef.current = false;
+        setIsModalOpen(false);
+        return;
+      }
+
       if (!videoRef.current) {
         return;
       }
@@ -35,8 +69,8 @@ const BarcodeInput = forwardRef(({ onCodeScanned }, ref) => {
       setIsScanning(true);
       scanningRef.current = true;
 
-      // Start scanning
-      const result = await codeReaderRef.current.decodeFromVideoDevice(
+      // Start scanning with proper constraints for Android
+      await codeReaderRef.current.decodeFromVideoDevice(
         null, // Auto detect device
         videoRef.current,
         (result, err) => {
@@ -45,6 +79,7 @@ const BarcodeInput = forwardRef(({ onCodeScanned }, ref) => {
           }
           if (result) {
             const code = result.getText();
+            console.log("Barcode detected:", code);
             onCodeScanned(code);
             setIsModalOpen(false);
             if (codeReaderRef.current) {
@@ -55,17 +90,33 @@ const BarcodeInput = forwardRef(({ onCodeScanned }, ref) => {
             message.success(`Quét thành công: ${code}`);
           }
           if (err && !(err instanceof NotFoundException)) {
-            console.error(err);
+            console.warn("Scan error:", err.message);
           }
         }
       );
     } catch (error) {
       console.error("Lỗi khởi tạo scanner:", error);
-      message.error(
-        "Không thể khởi tạo camera. Vui lòng kiểm tra quyền truy cập!"
-      );
+
+      // More specific error messages for Android
+      let errorMsg =
+        "Không thể khởi tạo camera. Vui lòng kiểm tra quyền truy cập!";
+      if (
+        error.name === "NotAllowedError" ||
+        error.name === "PermissionDeniedError"
+      ) {
+        errorMsg =
+          "Bị từ chối quyền truy cập camera. Vui lòng cấp quyền trong cài đặt!";
+      } else if (
+        error.name === "NotFoundError" ||
+        error.name === "DevicesNotFoundError"
+      ) {
+        errorMsg = "Không tìm thấy camera. Kiểm tra thiết bị của bạn!";
+      }
+
+      message.error(errorMsg);
       setIsScanning(false);
       scanningRef.current = false;
+      setIsModalOpen(false);
     }
   };
 
@@ -99,10 +150,14 @@ const BarcodeInput = forwardRef(({ onCodeScanned }, ref) => {
         <div style={{ width: "100%", overflow: "hidden" }}>
           <video
             ref={videoRef}
+            autoPlay={true}
+            playsInline={true}
+            muted={true}
             style={{
               width: "100%",
               maxHeight: "400px",
               objectFit: "cover",
+              transform: "scaleX(-1)", // Mirror for selfie cam if needed
             }}
           />
         </div>

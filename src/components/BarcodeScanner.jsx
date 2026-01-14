@@ -43,6 +43,12 @@ const BarcodeScanner = () => {
             aspectRatio: 4,
             rememberLastUsedCamera: true,
             showTorchButtonIfSupported: true,
+            // Better settings for Android
+            videoConstraints: {
+              facingMode: "environment", // Use back camera
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
             formatsToSupport: [
               "CODE_128",
               "CODE_39",
@@ -79,6 +85,7 @@ const BarcodeScanner = () => {
               timestamp: new Date().toLocaleString("vi-VN"),
             };
             setResults((prev) => [newResult, ...prev]);
+            console.log("Scan successful:", decodedText, format);
             message.success(`Scan thành công: ${decodedText} (${format})`);
 
             // Reset lastScan sau 1 giây
@@ -92,7 +99,8 @@ const BarcodeScanner = () => {
         };
 
         const error = (err) => {
-          // Ignore errors - continue scanning
+          // Log errors for debugging but continue scanning
+          console.warn("QR Scanner error:", err);
         };
 
         scanner.render(success, error);
@@ -101,7 +109,16 @@ const BarcodeScanner = () => {
         message.success("Camera bắt đầu");
       } catch (error) {
         console.error("Scanner error:", error);
-        message.error("Lỗi: " + error.message);
+
+        // Better error messages for Android
+        let errorMsg = "Lỗi: " + error.message;
+        if (error.message && error.message.includes("permission")) {
+          errorMsg = "Bị từ chối quyền truy cập camera. Vui lòng cấp quyền!";
+        } else if (error.message && error.message.includes("camera")) {
+          errorMsg = "Không tìm thấy camera hoặc camera đang bị sử dụng!";
+        }
+
+        message.error(errorMsg);
         setScanning(false);
         setLoading(false);
       }
