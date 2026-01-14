@@ -157,7 +157,6 @@ const BarcodeInput = forwardRef(({ onCodeScanned }, ref) => {
               width: "100%",
               maxHeight: "400px",
               objectFit: "cover",
-              transform: "scaleX(-1)", // Mirror for selfie cam if needed
             }}
           />
         </div>
